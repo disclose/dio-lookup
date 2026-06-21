@@ -52,7 +52,7 @@ cat hosts.txt | dio-lookup | jq -r 'select(.status=="complete") | "\(.input)\t\(
 
 ## Notes
 
-- **Free and anonymous.** A free API key only raises rate limits — request one by opening an issue on [lookup.disclose.io](https://github.com/disclose/lookup.disclose.io). Pass it with `-k` or `DIO_API_KEY`.
+- **Free and anonymous.** A free API key only raises rate limits — request one by emailing [hello@disclose.io](mailto:hello@disclose.io). Pass it with `-k` or `DIO_API_KEY`.
 - Honors the API's `Retry-After` on 429 and retries transient failures.
 - `--full` emits the complete `LookupResult` (attribution, contacts, resolution chain, data sources) — see the [OpenAPI spec](https://lookup.disclose.io/openapi.yaml).
 
