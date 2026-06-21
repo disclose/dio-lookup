@@ -1,0 +1,23 @@
+{
+  "name": "dio-lookup",
+  "version": "0.1.0",
+  "description": "Pipe internet assets to lookup.disclose.io and get security-disclosure contacts as JSONL.",
+  "type": "module",
+  "bin": {
+    "dio-lookup": "./dio-lookup.ts"
+  },
+  "scripts": {
+    "start": "bun dio-lookup.ts",
+    "build": "bun build ./dio-lookup.ts --compile --outfile dist/dio-lookup"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "license": "MIT",
+  "homepage": "https://lookup.disclose.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/disclose/dio-lookup.git"
+  },
+  "keywords": ["security", "vulnerability-disclosure", "security.txt", "recon", "bug-bounty", "disclose.io", "osint"]
+}
