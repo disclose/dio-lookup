@@ -1,3 +1,25 @@
+<div align="center">
+
+<a href="https://disclose.io"><img src="docs/marquee.png" alt="dio-lookup · disclose.io" width="820"></a>
+
+# dio-lookup
+
+### Pipe internet assets into [lookup.disclose.io](https://lookup.disclose.io) and get security-disclosure contacts back — Unix-style, from your terminal.
+
+<p>
+<a href="LICENSE"><img src="https://img.shields.io/github/license/disclose/dio-lookup?color=5B3AB6&label=license" alt="license"></a>
+<a href="https://lookup.disclose.io"><img src="https://img.shields.io/badge/lookup-lookup.disclose.io-5B3AB6" alt="lookup lookup.disclose.io"></a>
+<img src="https://img.shields.io/badge/use-in%20the%20CLI-5B3AB6" alt="use in%20the%20CLI">
+<a href="https://github.com/disclose/dio-lookup/issues"><img src="https://img.shields.io/badge/PRs-welcome-5B3AB6" alt="PRs welcome"></a>
+</p>
+
+*Part of **[the disclose.io Project](https://disclose.io)** — the open, vendor-neutral infrastructure for vulnerability disclosure. [Browse the ecosystem →](https://github.com/disclose)*
+
+</div>
+
+---
+
+
 # dio-lookup
 
 Pipe internet assets to [lookup.disclose.io](https://lookup.disclose.io) and get the right **security-disclosure contact** for each — as JSONL, built for recon pipelines.
