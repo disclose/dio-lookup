@@ -22,7 +22,7 @@ jobs:
           - { name: darwin-x64,  flag: bun-darwin-x64 }
           - { name: darwin-arm64, flag: bun-darwin-arm64 }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - name: Build ${{ matrix.target.name }}
         run: |
