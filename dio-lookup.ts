@@ -24,7 +24,7 @@ interface Options {
   inputs: string[];
 }
 
-function parseArgs(argv: string[]): Options | { help: true } | { version: true } {
+export function parseArgs(argv: string[]): Options | { help: true } | { version: true } {
   const o: Options = { concurrency: 5, api: DEFAULT_API, full: false, inputs: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -78,7 +78,7 @@ interface LookupResult {
   contacts?: Contact[];
 }
 
-async function lookupOne(input: string, o: Options): Promise<Record<string, unknown>> {
+export async function lookupOne(input: string, o: Options): Promise<Record<string, unknown>> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json', 'User-Agent': `dio-lookup/${VERSION}` };
   const key = o.apiKey ?? process.env.DIO_API_KEY;
   if (key) headers['Authorization'] = `Bearer ${key}`;
@@ -112,7 +112,7 @@ async function lookupOne(input: string, o: Options): Promise<Record<string, unkn
 
 // Bounded-concurrency worker pool over the input list, preserving nothing about
 // order (recon pipelines don't need it) — emit as each completes.
-async function run(inputs: string[], o: Options): Promise<number> {
+export async function run(inputs: string[], o: Options): Promise<number> {
   let idx = 0;
   let failures = 0;
   const out = (obj: Record<string, unknown>) => {
@@ -129,13 +129,20 @@ async function run(inputs: string[], o: Options): Promise<number> {
   return failures;
 }
 
-const parsed = parseArgs(process.argv.slice(2));
-if ('help' in parsed) { console.log(HELP); process.exit(0); }
-if ('version' in parsed) { console.log(VERSION); process.exit(0); }
+export { VERSION, HELP };
+export type { Options, LookupResult, Contact };
 
-const stdinInputs = await readStdinLines();
-const inputs = [...parsed.inputs, ...stdinInputs];
-if (inputs.length === 0) { console.error('no input assets (pass as args or pipe via stdin); --help for usage'); process.exit(2); }
+// Only run the CLI when executed directly (`bun dio-lookup.ts`), not when imported
+// by the test suite. This keeps parseArgs/lookupOne/run unit-testable in isolation.
+if (import.meta.main) {
+  const parsed = parseArgs(process.argv.slice(2));
+  if ('help' in parsed) { console.log(HELP); process.exit(0); }
+  if ('version' in parsed) { console.log(VERSION); process.exit(0); }
 
-const failures = await run(inputs, parsed);
-process.exit(failures > 0 && failures === inputs.length ? 1 : 0);
+  const stdinInputs = await readStdinLines();
+  const inputs = [...parsed.inputs, ...stdinInputs];
+  if (inputs.length === 0) { console.error('no input assets (pass as args or pipe via stdin); --help for usage'); process.exit(2); }
+
+  const failures = await run(inputs, parsed);
+  process.exit(failures > 0 && failures === inputs.length ? 1 : 0);
+}
