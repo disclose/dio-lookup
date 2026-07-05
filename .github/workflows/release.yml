@@ -29,6 +29,6 @@ jobs:
           bun build ./dio-lookup.ts --compile --target=${{ matrix.target.flag }} \
             --outfile dio-lookup-${{ matrix.target.name }}
       - name: Attach to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dio-lookup-${{ matrix.target.name }}
