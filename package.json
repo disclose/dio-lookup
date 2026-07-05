@@ -6,6 +6,9 @@
   "bin": {
     "dio-lookup": "./dio-lookup.ts"
   },
+  "files": [
+    "dio-lookup.ts"
+  ],
   "scripts": {
     "start": "bun dio-lookup.ts",
     "build": "bun build ./dio-lookup.ts --compile --outfile dist/dio-lookup"
