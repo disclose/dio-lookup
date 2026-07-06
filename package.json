@@ -1,6 +1,6 @@
 {
   "name": "dio-lookup",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pipe internet assets to lookup.disclose.io and get security-disclosure contacts as JSONL.",
   "type": "module",
   "bin": {
@@ -20,7 +20,7 @@
   "homepage": "https://lookup.disclose.io",
   "repository": {
     "type": "git",
-    "url": "https://github.com/disclose/dio-lookup.git"
+    "url": "git+https://github.com/disclose/dio-lookup.git"
   },
   "keywords": ["security", "vulnerability-disclosure", "security.txt", "recon", "bug-bounty", "disclose.io", "osint"]
 }
