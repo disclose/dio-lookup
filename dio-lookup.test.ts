@@ -79,6 +79,14 @@ describe("extractNucleiHosts (--nuclei)", () => {
     ];
     expect(extractNucleiHosts(lines)).toEqual(["8.8.8.8", "api.example.org"]);
   });
+  test("keeps bare IPv6 intact, unwraps [ipv6]:port, strips only real host:port", () => {
+    const lines = [
+      JSON.stringify({ host: "[2001:db8::1]:8443" }),
+      JSON.stringify({ host: "2001:db8::2" }),
+      JSON.stringify({ host: "example.com:443" }),
+    ];
+    expect(extractNucleiHosts(lines)).toEqual(["2001:db8::1", "2001:db8::2", "example.com"]);
+  });
   test("falls back to ip, and skips non-JSON / empty / host-less lines", () => {
     const lines = [
       "not-json-banner-line",

@@ -100,7 +100,10 @@ export function extractNucleiHosts(lines: string[]): string[] {
       hostFrom(f['matched-at']) ?? hostFrom(f.url) ?? hostFrom(f.matched) ??
       (typeof f.ip === 'string' ? f.ip : undefined);
     if (!host) continue;
-    host = host.replace(/:\d+$/, ''); // strip :port if present
+    // Strip :port without mangling a bare IPv6 (which has multiple colons).
+    const bracketed = host.match(/^\[(.+?)\](?::\d+)?$/);        // [ipv6] or [ipv6]:port
+    if (bracketed) host = bracketed[1];
+    else if (/^[^:]+:\d+$/.test(host)) host = host.slice(0, host.lastIndexOf(':')); // host:port
     if (!seen.has(host)) { seen.add(host); hosts.push(host); }
   }
   return hosts;
