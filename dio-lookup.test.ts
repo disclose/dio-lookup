@@ -1,5 +1,5 @@
 import { test, expect, describe, afterEach } from "bun:test";
-import { parseArgs, lookupOne, VERSION } from "./dio-lookup.ts";
+import { parseArgs, lookupOne, extractNucleiHosts, VERSION } from "./dio-lookup.ts";
 
 // A response recorded verbatim from lookup.disclose.io on 2026-07-05. It pins the
 // contract the compact mapping depends on: assetType, status, attribution.{organization,
@@ -40,12 +40,13 @@ describe("parseArgs", () => {
     const o = parseArgs(["cloudflare.com", "npm:express"]) as any;
     expect(o.inputs).toEqual(["cloudflare.com", "npm:express"]);
   });
-  test("flags: concurrency, key, api, full", () => {
-    const o = parseArgs(["-c", "8", "-k", "SECRET", "--api", "http://x/y", "--full"]) as any;
+  test("flags: concurrency, key, api, full, nuclei", () => {
+    const o = parseArgs(["-c", "8", "-k", "SECRET", "--api", "http://x/y", "--full", "--nuclei"]) as any;
     expect(o.concurrency).toBe(8);
     expect(o.apiKey).toBe("SECRET");
     expect(o.api).toBe("http://x/y");
     expect(o.full).toBe(true);
+    expect(o.nuclei).toBe(true);
   });
   test("non-positive or garbage concurrency falls back to the default (5)", () => {
     // `0 || 5` -> 5 (zero is falsy); NaN || 5 -> 5. Either way a sane worker count.
@@ -59,6 +60,33 @@ describe("parseArgs", () => {
   });
   test("unknown flag falls back to help", () => {
     expect(parseArgs(["--bogus"])).toEqual({ help: true });
+  });
+});
+
+describe("extractNucleiHosts (--nuclei)", () => {
+  test("pulls the host field and de-duplicates across findings", () => {
+    const lines = [
+      JSON.stringify({ "template-id": "a", host: "example.com", "matched-at": "https://example.com/x" }),
+      JSON.stringify({ "template-id": "b", host: "example.com", "matched-at": "https://example.com/y" }),
+      JSON.stringify({ "template-id": "c", host: "other.com" }),
+    ];
+    expect(extractNucleiHosts(lines)).toEqual(["example.com", "other.com"]);
+  });
+  test("derives host from matched-at / url when host is absent, strips :port", () => {
+    const lines = [
+      JSON.stringify({ "matched-at": "https://8.8.8.8:443/" }),
+      JSON.stringify({ url: "http://api.example.org:8080/v1" }),
+    ];
+    expect(extractNucleiHosts(lines)).toEqual(["8.8.8.8", "api.example.org"]);
+  });
+  test("falls back to ip, and skips non-JSON / empty / host-less lines", () => {
+    const lines = [
+      "not-json-banner-line",
+      "",
+      JSON.stringify({ ip: "1.1.1.1" }),
+      JSON.stringify({ "template-id": "no-host-fields" }),
+    ];
+    expect(extractNucleiHosts(lines)).toEqual(["1.1.1.1"]);
   });
 });
 

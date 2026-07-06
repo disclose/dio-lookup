@@ -13,7 +13,7 @@
  * object on stdout. Anonymous + free; an optional API key raises rate limits.
  */
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const DEFAULT_API = 'https://lookup.disclose.io/api/lookup';
 
 interface Options {
@@ -21,11 +21,12 @@ interface Options {
   api: string;
   apiKey?: string;
   full: boolean;
+  nuclei: boolean;
   inputs: string[];
 }
 
 export function parseArgs(argv: string[]): Options | { help: true } | { version: true } {
-  const o: Options = { concurrency: 5, api: DEFAULT_API, full: false, inputs: [] };
+  const o: Options = { concurrency: 5, api: DEFAULT_API, full: false, nuclei: false, inputs: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-h' || a === '--help') return { help: true };
@@ -34,6 +35,7 @@ export function parseArgs(argv: string[]): Options | { help: true } | { version:
     else if (a === '--api') o.api = argv[++i] ?? DEFAULT_API;
     else if (a === '-k' || a === '--key') o.apiKey = argv[++i];
     else if (a === '--full') o.full = true;
+    else if (a === '--nuclei') o.nuclei = true;
     else if (a.startsWith('-')) { process.stderr.write(`unknown flag: ${a}\n`); return { help: true }; }
     else o.inputs.push(a);
   }
@@ -51,6 +53,8 @@ OPTIONS
   -k, --key KEY         API key (raises rate limits); or set DIO_API_KEY
       --api URL         API endpoint (default ${DEFAULT_API})
       --full            emit the full LookupResult instead of the compact summary
+      --nuclei          treat stdin as nuclei -jsonl output: extract the scanned
+                        host from each finding, de-duplicate, then enrich each
   -V, --version         print version
   -h, --help            this help
 
@@ -62,6 +66,10 @@ EXAMPLES
   dio-lookup cloudflare.com
   subfinder -d example.com | httpx -silent | dio-lookup -c 8 > contacts.jsonl
   echo npm:express | dio-lookup --full | jq .
+  nuclei -u example.com -jsonl | dio-lookup --nuclei    # enrich each scanned host
+
+  # equivalent bridge without --nuclei (works with any dio-lookup):
+  nuclei -u example.com -jsonl | jq -r '.host' | sort -u | dio-lookup
 
 A disclose.io project — https://lookup.disclose.io`;
 
@@ -69,6 +77,33 @@ async function readStdinLines(): Promise<string[]> {
   if (process.stdin.isTTY) return [];
   const text = await new Response(Bun.stdin.stream()).text();
   return text.split('\n').map(l => l.trim()).filter(Boolean);
+}
+
+export function hostFrom(v: unknown): string | undefined {
+  if (typeof v !== 'string' || !v) return undefined;
+  try { return new URL(v.includes('://') ? v : `http://${v}`).hostname || undefined; }
+  catch { return undefined; }
+}
+
+// --nuclei: stdin is `nuclei -jsonl` (one finding OBJECT per line, not bare hosts).
+// Pull the scanned host from each finding and de-duplicate, so a scan producing many
+// findings across many hosts collapses to one lookup per unique host — which keeps the
+// call volume (and the API rate limit) sane. Non-JSON lines (banners, blanks) are skipped.
+export function extractNucleiHosts(lines: string[]): string[] {
+  const seen = new Set<string>();
+  const hosts: string[] = [];
+  for (const line of lines) {
+    let f: Record<string, unknown>;
+    try { f = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
+    let host =
+      (typeof f.host === 'string' && f.host ? f.host : undefined) ??
+      hostFrom(f['matched-at']) ?? hostFrom(f.url) ?? hostFrom(f.matched) ??
+      (typeof f.ip === 'string' ? f.ip : undefined);
+    if (!host) continue;
+    host = host.replace(/:\d+$/, ''); // strip :port if present
+    if (!seen.has(host)) { seen.add(host); hosts.push(host); }
+  }
+  return hosts;
 }
 
 interface Contact { type: string; value: string; confidence: string }
@@ -139,7 +174,11 @@ if (import.meta.main) {
   if ('help' in parsed) { console.log(HELP); process.exit(0); }
   if ('version' in parsed) { console.log(VERSION); process.exit(0); }
 
-  const stdinInputs = await readStdinLines();
+  const stdinLines = await readStdinLines();
+  const stdinInputs = parsed.nuclei ? extractNucleiHosts(stdinLines) : stdinLines;
+  if (parsed.nuclei && stdinLines.length) {
+    process.stderr.write(`[dio-lookup] --nuclei: ${stdinLines.length} finding line(s) -> ${stdinInputs.length} unique host(s)\n`);
+  }
   const inputs = [...parsed.inputs, ...stdinInputs];
   if (inputs.length === 0) { console.error('no input assets (pass as args or pipe via stdin); --help for usage'); process.exit(2); }
 

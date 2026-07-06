@@ -56,6 +56,8 @@ cat hosts.txt | dio-lookup [options]
   -k, --key KEY         API key (raises rate limits); or set DIO_API_KEY
       --api URL         API endpoint (default https://lookup.disclose.io/api/lookup)
       --full            emit the full LookupResult instead of the compact summary
+      --nuclei          read `nuclei -jsonl` on stdin: extract & de-duplicate the
+                        scanned hosts, then enrich each one
   -V, --version         print version
   -h, --help            help
 ```
@@ -71,6 +73,24 @@ Pull just the reporting channels with `jq`:
 ```bash
 cat hosts.txt | dio-lookup | jq -r 'select(.status=="complete") | "\(.input)\t\(.contacts[0].value)"'
 ```
+
+## Nuclei
+
+Close the loop from *"found something"* to *"here's who to tell."* Pipe a [Nuclei](https://github.com/projectdiscovery/nuclei) scan straight into `dio-lookup` and get the disclosure contact for every host it touched:
+
+```bash
+nuclei -u example.com -jsonl | dio-lookup --nuclei
+```
+
+`--nuclei` reads Nuclei's JSONL (one finding *object* per line — not bare hosts), pulls the scanned host from each finding, and **de-duplicates** before looking anything up. That dedupe matters: a scan can emit hundreds of findings across the same handful of hosts, and collapsing them to one lookup per unique host keeps you well under the API rate limit. For large scans, pass an API key (`-k` / `DIO_API_KEY`).
+
+Prefer no extra flag? This bridge is equivalent and works with any `dio-lookup`:
+
+```bash
+nuclei -u example.com -jsonl | jq -r '.host' | sort -u | dio-lookup
+```
+
+> Heads-up: each scanned host is sent to lookup.disclose.io (which logs requests). For target lists under NDA, use the deduped form and mind the egress.
 
 ## Notes
 
