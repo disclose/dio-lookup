@@ -135,7 +135,8 @@ export async function lookupOne(input: string, o: Options): Promise<Record<strin
       });
       if (res.status === 429 || res.status === 503) {
         const wait = Math.min(30, parseInt(res.headers.get('retry-after') ?? '2', 10) || 2);
-        await Bun.sleep(wait * 1000);
+        // Up to 1s of jitter so a pool of workers shed together does not retry together.
+        await Bun.sleep(wait * 1000 + Math.floor(Math.random() * 1000));
         continue;
       }
       const body = await res.json() as LookupResult;
