@@ -1,6 +1,6 @@
 {
   "name": "dio-lookup",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Pipe internet assets to lookup.disclose.io and get security-disclosure contacts as JSONL.",
   "type": "module",
   "bin": {

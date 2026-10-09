@@ -5,7 +5,7 @@
  *
  * Built for recon pipelines:
  *   subfinder -d example.com | httpx -silent | dio-lookup
- *   cat hosts.txt | dio-lookup --concurrency 8 > contacts.jsonl
+ *   cat hosts.txt | dio-lookup --concurrency 4 > contacts.jsonl
  *   dio-lookup cloudflare.com npm:express gh:facebook/react
  *
  * Each input asset (domain, IP, ASN, URL, email, package, repo, container,
@@ -13,7 +13,9 @@
  * object on stdout. Anonymous + free; an optional API key raises rate limits.
  */
 
-const VERSION = '0.2.0';
+const VERSION = '0.2.1';
+const DEFAULT_CONCURRENCY = 4;
+const REQUEST_TIMEOUT_MS = 45_000;
 const DEFAULT_API = 'https://lookup.disclose.io/api/lookup';
 
 interface Options {
@@ -26,12 +28,12 @@ interface Options {
 }
 
 export function parseArgs(argv: string[]): Options | { help: true } | { version: true } {
-  const o: Options = { concurrency: 5, api: DEFAULT_API, full: false, nuclei: false, inputs: [] };
+  const o: Options = { concurrency: DEFAULT_CONCURRENCY, api: DEFAULT_API, full: false, nuclei: false, inputs: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-h' || a === '--help') return { help: true };
     if (a === '-V' || a === '--version') return { version: true };
-    else if (a === '-c' || a === '--concurrency') o.concurrency = Math.max(1, parseInt(argv[++i] ?? '5', 10) || 5);
+    else if (a === '-c' || a === '--concurrency') o.concurrency = Math.max(1, parseInt(argv[++i] ?? '', 10) || DEFAULT_CONCURRENCY);
     else if (a === '--api') o.api = argv[++i] ?? DEFAULT_API;
     else if (a === '-k' || a === '--key') o.apiKey = argv[++i];
     else if (a === '--full') o.full = true;
@@ -49,7 +51,8 @@ USAGE
   cat hosts.txt | dio-lookup [options]
 
 OPTIONS
-  -c, --concurrency N   parallel requests (default 5)
+  -c, --concurrency N   parallel requests (default 4; the service runs ~8 lookups
+                        at once for everyone, so more mostly earns 503s)
   -k, --key KEY         API key (raises rate limits); or set DIO_API_KEY
       --api URL         API endpoint (default ${DEFAULT_API})
       --full            emit the full LookupResult instead of the compact summary
@@ -64,7 +67,7 @@ OUTPUT
 
 EXAMPLES
   dio-lookup cloudflare.com
-  subfinder -d example.com | httpx -silent | dio-lookup -c 8 > contacts.jsonl
+  subfinder -d example.com | httpx -silent | dio-lookup -c 4 > contacts.jsonl
   echo npm:express | dio-lookup --full | jq .
   nuclei -u example.com -jsonl | dio-lookup --nuclei    # enrich each scanned host
 
@@ -121,13 +124,19 @@ export async function lookupOne(input: string, o: Options): Promise<Record<strin
   const key = o.apiKey ?? process.env.DIO_API_KEY;
   if (key) headers['Authorization'] = `Bearer ${key}`;
 
-  // Up to 3 attempts, honoring Retry-After on 429.
+  // Up to 3 attempts, honoring Retry-After on 429 (rate limit) and 503 (the
+  // service is at capacity). A lookup can take ~30s, so the request timeout sits
+  // above that: giving up early leaves the server working for nobody.
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch(o.api, { method: 'POST', headers, body: JSON.stringify({ input }) });
-      if (res.status === 429) {
+      const res = await fetch(o.api, {
+        method: 'POST', headers, body: JSON.stringify({ input }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (res.status === 429 || res.status === 503) {
         const wait = Math.min(30, parseInt(res.headers.get('retry-after') ?? '2', 10) || 2);
-        await Bun.sleep(wait * 1000);
+        // Up to 1s of jitter so a pool of workers shed together does not retry together.
+        await Bun.sleep(wait * 1000 + Math.floor(Math.random() * 1000));
         continue;
       }
       const body = await res.json() as LookupResult;
