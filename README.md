@@ -52,7 +52,7 @@ chmod +x dio-lookup && sudo mv dio-lookup /usr/local/bin/
 dio-lookup [options] [asset ...]
 cat hosts.txt | dio-lookup [options]
 
-  -c, --concurrency N   parallel requests (default 5)
+  -c, --concurrency N   parallel requests (default 4)
   -k, --key KEY         API key (raises rate limits); or set DIO_API_KEY
       --api URL         API endpoint (default https://lookup.disclose.io/api/lookup)
       --full            emit the full LookupResult instead of the compact summary
@@ -95,7 +95,7 @@ nuclei -u example.com -jsonl | jq -r '.host' | sort -u | dio-lookup
 ## Notes
 
 - **Free and anonymous.** A free API key only raises rate limits — request one by emailing [hello@disclose.io](mailto:hello@disclose.io). Pass it with `-k` or `DIO_API_KEY`.
-- Honors the API's `Retry-After` on 429 and retries transient failures.
+- Honors the API's `Retry-After` on 429 (rate limit) and 503 (service at capacity), and retries transient failures. Requests time out at 45s, above the slowest lookups.
 - `--full` emits the complete `LookupResult` (attribution, contacts, resolution chain, data sources) — see the [OpenAPI spec](https://lookup.disclose.io/openapi.yaml).
 
 A [disclose.io](https://disclose.io) project. MIT licensed.

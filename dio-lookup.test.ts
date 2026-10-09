@@ -31,7 +31,7 @@ afterEach(() => { servers.forEach((s) => s.stop(true)); servers = []; });
 describe("parseArgs", () => {
   test("defaults", () => {
     const o = parseArgs([]) as any;
-    expect(o.concurrency).toBe(5);
+    expect(o.concurrency).toBe(4);
     expect(o.full).toBe(false);
     expect(o.inputs).toEqual([]);
     expect(o.api).toContain("lookup.disclose.io");
@@ -48,10 +48,10 @@ describe("parseArgs", () => {
     expect(o.full).toBe(true);
     expect(o.nuclei).toBe(true);
   });
-  test("non-positive or garbage concurrency falls back to the default (5)", () => {
-    // `0 || 5` -> 5 (zero is falsy); NaN || 5 -> 5. Either way a sane worker count.
-    expect((parseArgs(["-c", "0"]) as any).concurrency).toBe(5);
-    expect((parseArgs(["-c", "nope"]) as any).concurrency).toBe(5);
+  test("non-positive or garbage concurrency falls back to the default (4)", () => {
+    // `0 || 4` -> 4 (zero is falsy); NaN || 4 -> 4. Either way a sane worker count.
+    expect((parseArgs(["-c", "0"]) as any).concurrency).toBe(4);
+    expect((parseArgs(["-c", "nope"]) as any).concurrency).toBe(4);
     expect((parseArgs(["-c", "8"]) as any).concurrency).toBe(8);
   });
   test("--version / --help are recognized", () => {
@@ -146,6 +146,18 @@ describe("lookupOne resilience", () => {
     const api = serve(() => {
       n++;
       if (n === 1) return new Response("rate limited", { status: 429, headers: { "retry-after": "1" } });
+      return Response.json(RECORDED);
+    });
+    const out = (await lookupOne("cloudflare.com", opts({ api }))) as any;
+    expect(n).toBe(2);
+    expect(out.organization).toBe("Cloudflare");
+  }, 10_000);
+
+  test("honors a 503 (service at capacity) then succeeds on retry", async () => {
+    let n = 0;
+    const api = serve(() => {
+      n++;
+      if (n === 1) return new Response(JSON.stringify({ errorCode: "lookup-overloaded" }), { status: 503, headers: { "retry-after": "1" } });
       return Response.json(RECORDED);
     });
     const out = (await lookupOne("cloudflare.com", opts({ api }))) as any;
